@@ -1,0 +1,20 @@
+{
+  "name": "ds-typing-exe",
+  "version": "1.0.0",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.ds.typing.simple",
+    "productName": "DS Typing App (Simple)",
+    "directories": { "output": "dist" },
+    "win": { "target": "nsis" }
+  }
+}

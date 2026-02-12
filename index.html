@@ -1,0 +1,1582 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DS Typing App (App-like Trainer)</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;800&family=Noto+Sans+Devanagari:wght@400;600;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- jsPDF for certificate -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1b34;
+      --panel2:#0c162b;
+      --txt:#e9f0ff;
+      --muted:#a9b7d0;
+      --line:#22335f;
+      --brand:#2b5cff;
+      --ok:#18c37e;
+      --bad:#ff4d4d;
+      --warn:#ffcc00;
+      --shadow: 0 18px 60px rgba(0,0,0,.5);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 500px at 15% 0%, rgba(43,92,255,.18), transparent 55%),
+        radial-gradient(1000px 600px at 85% 10%, rgba(24,195,126,.12), transparent 55%),
+        var(--bg);
+      color:var(--txt);
+      font-family:"Noto Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      overflow:hidden;
+    }
+
+    /* App shell */
+    .app{
+      height:100%;
+      display:grid;
+      grid-template-columns: 280px 1fr;
+      gap:14px;
+      padding:14px;
+    }
+    @media (max-width: 980px){
+      body{overflow:auto}
+      .app{grid-template-columns:1fr; height:auto; overflow:auto}
+      .sidebar{position:sticky; top:0; z-index:5}
+    }
+
+    .card{
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    /* Sidebar */
+    .sidebar{
+      display:flex; flex-direction:column;
+      gap:12px;
+    }
+    .brand{
+      padding:16px;
+      display:flex; gap:12px; align-items:center;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .logo{
+      width:44px; height:44px; border-radius:14px;
+      background: linear-gradient(135deg, rgba(43,92,255,.95), rgba(24,195,126,.85));
+      box-shadow: var(--shadow);
+      flex:0 0 auto;
+    }
+    .brand h1{font-size:16px; margin:0}
+    .brand .sub{font-size:12px; color:var(--muted); margin-top:4px}
+
+    .nav{
+      padding:10px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .nav button{
+      width:100%;
+      text-align:left;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--txt);
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:space-between;
+      transition:.15s transform ease, .15s filter ease, .15s background ease;
+    }
+    .nav button:hover{transform: translateY(-1px); filter:brightness(1.06)}
+    .nav button.active{
+      background: rgba(43,92,255,.22);
+      border-color: rgba(43,92,255,.45);
+    }
+    .pill{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      color: rgba(233,240,255,.9);
+      background: rgba(255,255,255,.05);
+    }
+
+    .sideControls{
+      margin-top:auto;
+      padding:12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.10);
+      display:grid;
+      gap:10px;
+    }
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    input, select, textarea, button{font:inherit}
+    input, select, textarea{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(10,18,36,.55);
+      color: var(--txt);
+      outline:none;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > *{flex:1}
+    .btn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(43,92,255,.92);
+      color:white;
+      cursor:pointer;
+      transition:.15s transform ease, .15s filter ease;
+      user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px); filter:brightness(1.06)}
+    .btn.secondary{background: rgba(255,255,255,.06)}
+    .btn.ok{background: rgba(24,195,126,.9)}
+    .btn.danger{background: rgba(255,77,77,.85)}
+    .btn.warn{background: rgba(255,204,0,.16); border-color: rgba(255,204,0,.35)}
+    .small{font-size:12px; color:var(--muted)}
+
+    /* Main */
+    .main{
+      display:flex; flex-direction:column;
+      min-height: 0;
+    }
+    .topbar{
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+    }
+    .topbar .left{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      font-size:12px;
+      color: var(--muted);
+    }
+    .chip b{color:var(--txt)}
+    .topbar .right{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+
+    .content{
+      padding:14px;
+      overflow:auto;
+      min-height:0;
+    }
+
+    /* Typing area (App-like) */
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+    @media (max-width: 740px){ .stats{grid-template-columns: repeat(2,1fr)} }
+    .stat{
+      padding:12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .stat .k{font-size:12px; color:var(--muted)}
+    .stat .v{font-size:20px; font-weight:800; margin-top:4px}
+    .v.ok{color:var(--ok)}
+    .v.bad{color:var(--bad)}
+    .v.warn{color:var(--warn)}
+
+    .panel{
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.12);
+      overflow:hidden;
+    }
+    .panelHead{
+      padding:12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      background: rgba(0,0,0,.10);
+    }
+    .panelBody{padding:12px}
+
+    .promptBox{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(10,18,36,.35);
+      border-radius: 14px;
+      padding:12px;
+      max-height: 220px;
+      overflow:auto;
+    }
+    .promptRender{
+      white-space: pre-wrap;
+      line-height: 1.75;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .promptRender.hi{
+      font-family: "Noto Sans Devanagari","Noto Sans", system-ui, sans-serif;
+      font-size: 16px;
+    }
+
+    .ch-ok{color: rgba(24,195,126,.95)}
+    .ch-bad{color: rgba(255,77,77,.95); text-decoration: underline; text-decoration-thickness:2px;}
+    .ch-rem{color: rgba(233,240,255,.78)}
+    .caret{
+      display:inline-block;
+      width: 2px;
+      height: 1.25em;
+      vertical-align: -0.15em;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 0 10px rgba(43,92,255,.5);
+      animation: blink 1s infinite;
+      margin: 0 1px;
+    }
+    @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:.2}}
+
+    .typingInput textarea{
+      width:100%;
+      min-height: 160px;
+      resize: vertical;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(10,18,36,.55);
+      color: var(--txt);
+      padding:12px;
+      line-height:1.65;
+      font-family:"JetBrains Mono", ui-monospace, monospace;
+      font-size: 14px;
+      outline:none;
+    }
+    .typingInput textarea.hi{
+      font-family:"Noto Sans Devanagari","Noto Sans", system-ui, sans-serif;
+      font-size: 17px;
+    }
+
+    /* Keyboard */
+    .kbdWrap{display:none; margin-top:12px}
+    .kbd{
+      display:flex; flex-direction:column; gap:8px;
+      padding:12px;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .kbdRow{display:flex; gap:8px; flex-wrap:wrap}
+    .key{
+      min-width: 44px;
+      padding:10px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: var(--txt);
+      text-align:center;
+      user-select:none;
+      font-family:"JetBrains Mono", ui-monospace, monospace;
+      font-size: 13px;
+    }
+    .key.wide{min-width: 88px}
+    .key.xwide{min-width: 140px}
+    .key.active{
+      background: rgba(43,92,255,.25);
+      border-color: rgba(43,92,255,.55);
+      box-shadow: 0 0 16px rgba(43,92,255,.25);
+    }
+
+    .pad{
+      display:flex; flex-wrap:wrap; gap:8px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .pad button{
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color: var(--txt);
+      cursor:pointer;
+      min-width: 44px;
+    }
+    .pad button:hover{filter:brightness(1.08)}
+    .pad button.wide{min-width: 88px}
+    .pad button.xwide{min-width: 140px}
+
+    /* Tables */
+    .table{
+      width:100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      overflow:hidden;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .table th, .table td{
+      padding:10px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      text-align:left;
+    }
+    .table th{color: var(--muted); font-weight:600; background: rgba(0,0,0,.10)}
+    .table tr:hover td{background: rgba(255,255,255,.03)}
+    .muted{color:var(--muted)}
+
+    /* Focus mode */
+    .focusMask{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(4px);
+      display:none;
+      z-index: 50;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+    }
+    .focusCard{
+      width: min(980px, 100%);
+      border-radius: 20px;
+      border:1px solid rgba(255,255,255,.12);
+      background: linear-gradient(180deg, rgba(15,27,52,.98), rgba(10,18,36,.98));
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .focusHead{
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .focusBody{padding:14px}
+    .bar{
+      height:10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    .bar > div{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(43,92,255,.95), rgba(24,195,126,.9));
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="card sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>DS Typing App</h1>
+        <div class="sub">App-like Trainer + Lessons</div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="active" data-page="practice">Practice <span class="pill">Live</span></button>
+      <button data-page="test">Test <span class="pill">Timer</span></button>
+      <button data-page="lessons">Lessons <span class="pill">Step</span></button>
+      <button data-page="history">History <span class="pill">Saved</span></button>
+      <button data-page="leaderboard">Leaderboard <span class="pill">Top</span></button>
+      <button data-page="settings">Settings <span class="pill">Prefs</span></button>
+    </div>
+
+    <div class="sideControls">
+      <div class="row">
+        <div>
+          <label>Student Name</label>
+          <input id="studentName" placeholder="e.g., Rahul Patel" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Language</label>
+          <select id="language">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="math">Math</option>
+          </select>
+        </div>
+        <div>
+          <label>Duration</label>
+          <select id="duration">
+            <option value="60">1 min</option>
+            <option value="120">2 min</option>
+            <option value="180" selected>3 min</option>
+            <option value="300">5 min</option>
+            <option value="600">10 min</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="btnFocus">Focus Mode</button>
+        <button class="btn danger" id="btnReset">Reset</button>
+      </div>
+      <div class="small">
+        ✅ Enter = नई लाइन (Keyboard Enter या ⏎ button) <br>
+        ✅ Timer typing start पर auto start
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="card main">
+    <div class="topbar">
+      <div class="left">
+        <div class="chip"><span class="muted">Page:</span> <b id="pageTitle">Practice</b></div>
+        <div class="chip"><span class="muted">Passage:</span> <b id="passageLabel">Sample</b></div>
+        <div class="chip"><span class="muted">Status:</span> <b id="statusLabel" class="muted">Ready</b></div>
+      </div>
+      <div class="right">
+        <button class="btn secondary" id="btnUpload">Upload .txt</button>
+        <input id="fileInput" type="file" accept=".txt,text/plain" style="display:none" />
+        <button class="btn ok" id="btnFinish">Finish & Save</button>
+        <button class="btn warn" id="btnCertificate">Certificate PDF</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- PAGES -->
+      <div id="page_practice" class="page">
+        <div class="stats">
+          <div class="stat"><div class="k">Time Left</div><div class="v" id="timeLeft">03:00</div></div>
+          <div class="stat"><div class="k">WPM</div><div class="v ok" id="wpm">0</div></div>
+          <div class="stat"><div class="k">Accuracy</div><div class="v warn" id="acc">100%</div></div>
+          <div class="stat"><div class="k">Errors</div><div class="v bad" id="errors">0</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panelHead">
+            <div class="row" style="width:100%">
+              <div>
+                <label>Pick Passage</label>
+                <select id="passageSelect"></select>
+              </div>
+              <div>
+                <label>Options</label>
+                <div class="row">
+                  <button class="btn secondary" id="btnStart">Start</button>
+                  <button class="btn secondary" id="btnNext">Next Passage</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <label>Text to type (App-style highlighting)</label>
+            <div class="promptBox" id="promptBox">
+              <div id="promptRender" class="promptRender"></div>
+            </div>
+
+            <div style="height:12px"></div>
+
+            <div class="typingInput">
+              <label>Your typing</label>
+              <textarea id="typing" placeholder="Start typing here..."></textarea>
+              <div class="small muted" id="langHint"></div>
+            </div>
+
+            <!-- English virtual keyboard -->
+            <div class="kbdWrap" id="englishKbdWrap">
+              <div class="small muted" style="margin:10px 0 8px">English Keyboard (key highlight)</div>
+              <div class="kbd" id="englishKbd"></div>
+            </div>
+
+            <!-- Math symbols pad -->
+            <div class="kbdWrap" id="mathPadWrap">
+              <div class="small muted" style="margin:10px 0 8px">Math pad</div>
+              <div class="pad" id="mathPad"></div>
+            </div>
+
+            <!-- Hindi on-screen keyboard -->
+            <div class="kbdWrap" id="hindiPadWrap">
+              <div class="small muted" style="margin:10px 0 8px">Hindi on-screen keyboard</div>
+              <div class="pad" id="hindiPad"></div>
+              <div class="small muted" style="margin-top:8px">
+                ␠ Space • ⌫ Backspace • ⏎ Enter (नई लाइन) • Clear = typing box खाली
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page_test" class="page" style="display:none">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <div style="font-weight:800">Test Mode</div>
+              <div class="small muted">Timer auto start on first typing. Finish & Save से result store.</div>
+            </div>
+            <div class="row" style="justify-content:flex-end">
+              <button class="btn secondary" id="btnAutoNextToggle">Auto Next: <span id="autoNextLabel">ON</span></button>
+              <button class="btn secondary" id="btnHindiToggle">Hindi Keyboard: <span id="hindiToggleLabel">OFF</span></button>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="stats">
+              <div class="stat"><div class="k">Time Left</div><div class="v" id="timeLeft2">03:00</div></div>
+              <div class="stat"><div class="k">WPM</div><div class="v ok" id="wpm2">0</div></div>
+              <div class="stat"><div class="k">Accuracy</div><div class="v warn" id="acc2">100%</div></div>
+              <div class="stat"><div class="k">Errors</div><div class="v bad" id="errors2">0</div></div>
+            </div>
+            <div class="small muted">Tip: Enter = नई लाइन (keyboard Enter या ⏎ button). Space exact रखें.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page_lessons" class="page" style="display:none">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <div style="font-weight:800">Lessons (App-style progression)</div>
+              <div class="small muted">Beginner → Intermediate → Advanced (auto passages)</div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="row">
+              <button class="btn secondary lessonBtn" data-lesson="beginner">Beginner</button>
+              <button class="btn secondary lessonBtn" data-lesson="intermediate">Intermediate</button>
+              <button class="btn secondary lessonBtn" data-lesson="advanced">Advanced</button>
+            </div>
+            <div style="height:10px"></div>
+            <div class="small muted" id="lessonInfo">
+              Lesson चुनो → passages auto load होंगे. फिर Practice page में typing करो.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page_history" class="page" style="display:none">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <div style="font-weight:800">History</div>
+              <div class="small muted">इस PC/browser में saved results</div>
+            </div>
+            <div class="row" style="justify-content:flex-end">
+              <button class="btn secondary" id="btnRefreshHistory">Refresh</button>
+              <button class="btn danger" id="btnClearHistory">Clear All</button>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="row">
+              <div>
+                <label>Filter Student</label>
+                <input id="filterStudent" placeholder="type name..." />
+              </div>
+              <div>
+                <label>Filter Language</label>
+                <select id="filterLang">
+                  <option value="all">All</option>
+                  <option value="en">English</option>
+                  <option value="hi">Hindi</option>
+                  <option value="math">Math</option>
+                </select>
+              </div>
+            </div>
+            <div style="height:10px"></div>
+            <div class="small muted" id="historySummary">No results yet.</div>
+            <div style="height:10px"></div>
+            <table class="table" id="historyTable">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Student</th><th>Lang</th><th>Duration</th><th>WPM</th><th>Acc</th><th>Errors</th><th>Passage</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page_leaderboard" class="page" style="display:none">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <div style="font-weight:800">Topper Leaderboard</div>
+              <div class="small muted">Best WPM per student (min accuracy)</div>
+            </div>
+            <div class="row" style="justify-content:flex-end">
+              <div style="min-width:160px">
+                <label>Min Accuracy %</label>
+                <input id="minAcc" type="number" min="0" max="100" value="80">
+              </div>
+              <div style="min-width:140px">
+                <label>Top N</label>
+                <input id="topN" type="number" min="3" max="50" value="10">
+              </div>
+              <div style="min-width:140px">
+                <label>&nbsp;</label>
+                <button class="btn secondary" id="btnRefreshBoard">Refresh</button>
+              </div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <table class="table" id="boardTable">
+              <thead>
+                <tr><th>#</th><th>Student</th><th>Best WPM</th><th>Acc</th><th>Lang</th><th>Date</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page_settings" class="page" style="display:none">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <div style="font-weight:800">Settings</div>
+              <div class="small muted">Daily target + options</div>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="row">
+              <div>
+                <label>Daily Target Tests</label>
+                <input id="targetTests" type="number" min="1" value="10">
+              </div>
+              <div>
+                <label>Daily Target Minutes</label>
+                <input id="targetMinutes" type="number" min="1" value="30">
+              </div>
+            </div>
+            <div style="height:10px"></div>
+            <div class="row">
+              <button class="btn secondary" id="btnSaveTargets">Save Targets</button>
+              <button class="btn secondary" id="btnResetDaily">Reset Today Progress</button>
+            </div>
+
+            <div style="height:12px"></div>
+            <div class="panel" style="padding:12px">
+              <div style="font-weight:800">Today Progress</div>
+              <div class="small muted" id="dailyLine">Loading...</div>
+              <div style="height:8px"></div>
+              <div class="bar"><div id="dailyBar"></div></div>
+            </div>
+
+            <div style="height:12px"></div>
+            <div class="small muted">
+              Enter instruction: Keyboard Enter या ⏎ button = नई लाइन <br>
+              Hindi on-screen keyboard toggle Test page में (या Hindi language चुनते ही show)
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Focus mode overlay -->
+<div class="focusMask" id="focusMask">
+  <div class="focusCard">
+    <div class="focusHead">
+      <div style="font-weight:900">Focus Mode</div>
+      <button class="btn secondary" id="btnExitFocus">Exit</button>
+    </div>
+    <div class="focusBody">
+      <div class="stats" style="margin-top:0">
+        <div class="stat"><div class="k">Time Left</div><div class="v" id="timeLeftF">03:00</div></div>
+        <div class="stat"><div class="k">WPM</div><div class="v ok" id="wpmF">0</div></div>
+        <div class="stat"><div class="k">Accuracy</div><div class="v warn" id="accF">100%</div></div>
+        <div class="stat"><div class="k">Errors</div><div class="v bad" id="errorsF">0</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panelBody">
+          <div class="promptBox" id="promptBoxF"><div id="promptRenderF" class="promptRender"></div></div>
+          <div style="height:12px"></div>
+          <div class="typingInput">
+            <textarea id="typingF" placeholder="Type here..."></textarea>
+            <div class="small muted">Enter = नई लाइन • Finish & Save main screen से भी कर सकते हो</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   DS Typing App (App-like)
+   - Pages + Sidebar
+   - Highlight per char + caret
+   - Focus mode
+   - English keyboard highlight
+   - Hindi on-screen keyboard + Math pad
+   - History + Leaderboard + Daily target
+   ========================= */
+
+const $ = (id)=>document.getElementById(id);
+
+const LS_HISTORY="DS_TYPING_HISTORY";
+const LS_TARGETS="DS_TYPING_TARGETS";
+const LS_DAILY="DS_TYPING_DAILY_PROGRESS";
+const LS_OPTIONS="DS_TYPING_OPTIONS";
+
+const SAMPLE = {
+  en: [
+`The quick brown fox jumps over the lazy dog.
+Practice steadily, focus on accuracy first, and speed will follow.`,
+`Typing is a skill. Improve by daily practice.
+Keep your posture correct and avoid looking at the keyboard.`,
+`Discipline beats motivation. Type slowly, correctly, and consistently.
+Measure your WPM and accuracy after every session.`
+  ],
+  hi: [
+`जीवन में सफलता के लिए नियमित अभ्यास बहुत आवश्यक है।
+पहले शुद्धता पर ध्यान दें, फिर गति अपने आप बढ़ेगी।`,
+`टाइपिंग एक कौशल है। रोज़ थोड़ी देर अभ्यास करने से परिणाम बेहतर आते हैं।
+धैर्य रखें और निरंतरता बनाए रखें।`,
+`समय का सदुपयोग करें। लक्ष्य स्पष्ट रखें और मेहनत करते रहें।
+आपकी प्रगति आपकी आदतों पर निर्भर करती है।`
+  ],
+  math: [
+`If x = 12 and y = 5, then x + y = 17 and x − y = 7.
+Also, x × y = 60 and x ÷ y = 2.4`,
+`Area of circle: A = πr², circumference: C = 2πr.
+If r = 7, then A = 49π and C = 14π.`,
+`Solve: (a + b)² = a² + 2ab + b².
+If a = 3 and b = 4, then (a + b)² = 49.`
+  ]
+};
+
+const LESSONS = {
+  beginner: {
+    en: ["asdf jkl; asdf jkl;","home row practice: asdf jkl;","the quick brown fox"],
+    hi: ["अ आ इ ई उ ऊ ए ऐ ओ औ","क ख ग घ ङ च छ ज झ ञ","त थ द ध न प फ ब भ म"],
+    math:["1 + 1 = 2","(a + b)² = a² + 2ab + b²","x × y ÷ z"]
+  },
+  intermediate: {
+    en:["punctuation, commas, and periods.","practice with longer sentences, steadily."],
+    hi:["जीवन में अनुशासन आवश्यक है।","नियमित अभ्यास से गति बढ़ती है।"],
+    math:["A = πr², C = 2πr","x − y, x × y, x ÷ y"]
+  },
+  advanced: {
+    en:["longer paragraph typing improves rhythm and accuracy. keep going!"],
+    hi:["आपका लक्ष्य स्पष्ट हो तो परिणाम निश्चित होते हैं। निरंतर अभ्यास करें।"],
+    math:["∑, ∫, √, ≤, ≥, ≠ symbols practice with equations."]
+  }
+};
+
+const HINDI_KEYS = [
+  "अ","आ","इ","ई","उ","ऊ","ऋ","ए","ऐ","ओ","औ","अं","अः",
+  "क","ख","ग","घ","ङ","च","छ","ज","झ","ञ",
+  "ट","ठ","ड","ढ","ण","त","थ","द","ध","न",
+  "प","फ","ब","भ","म","य","र","ल","व","श","ष","स","ह",
+  "ा","ि","ी","ु","ू","ृ","े","ै","ो","ौ","ं","ः","ँ","्",
+  "।",",",".","?","!","-","(",")","“","”","'","\"",
+  "␠","⌫","⏎","Clear"
+];
+
+const MATH_KEYS = ["π","√","²","³","×","÷","±","≠","≈","≤","≥","∞","∑","∫","θ","Δ","α","β","γ","λ","µ","σ","Ω","^","_","(",")","[","]","{","}","=","+","−","/","•",":",";","␠","⌫","⏎"];
+
+const EN_KBD = [
+  ["`","1","2","3","4","5","6","7","8","9","0","-","=","Backspace"],
+  ["Tab","q","w","e","r","t","y","u","i","o","p","[","]","\\"],
+  ["Caps","a","s","d","f","g","h","j","k","l",";","'","Enter"],
+  ["Shift","z","x","c","v","b","n","m",",",".","/","Shift"],
+  ["Space"]
+];
+
+const state = {
+  page:"practice",
+  lang:"en",
+  durationSec: 180,
+  running:false,
+  startedAt:null,
+  tick:null,
+  promptText:"",
+  currentPassageName:"Sample 1",
+  passages:[],
+  uploadedText:null,
+  uploadedName:null,
+  lastSaved:null,
+  options: { autoNext:true, hindiPad:false },
+};
+
+function getJSON(key, fallback){
+  try{ return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  catch{ return fallback; }
+}
+function setJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+function formatMMSS(sec){
+  const s = Math.max(0, Math.floor(sec));
+  const mm = String(Math.floor(s/60)).padStart(2,"0");
+  const ss = String(s%60).padStart(2,"0");
+  return `${mm}:${ss}`;
+}
+function todayKey(){
+  const d = new Date(); const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function nowISO(){
+  const d = new Date(); const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function norm(s){ return (s??"").replace(/\r\n/g,"\n"); }
+
+function computeMetrics(prompt, typed, elapsedSec){
+  prompt = norm(prompt);
+  typed  = norm(typed);
+  const n = Math.max(prompt.length, typed.length);
+  let correct=0, errors=0;
+
+  for(let i=0;i<n;i++){
+    const pc = prompt[i] ?? "";
+    const tc = typed[i] ?? "";
+    if(pc === tc && tc !== "") correct++;
+    else if(tc !== "") errors++;
+  }
+
+  const typedChars = typed.length;
+  const acc = typedChars===0 ? 100 : Math.max(0, Math.min(100, (correct/typedChars)*100));
+  const minutes = Math.max(1/60, elapsedSec/60);
+  const wpm = Math.max(0, Math.round((typedChars/5)/minutes));
+  return {wpm, acc, errors, correct, typedChars};
+}
+
+/* Daily target */
+function getTargets(){ return getJSON(LS_TARGETS, {tests:10, minutes:30}); }
+function setTargets(t){ setJSON(LS_TARGETS, t); }
+function getDaily(){
+  const cur = getJSON(LS_DAILY, {date:todayKey(), testsDone:0, minutesDone:0});
+  if(cur.date !== todayKey()){
+    const r = {date:todayKey(), testsDone:0, minutesDone:0}; setJSON(LS_DAILY,r); return r;
+  }
+  return cur;
+}
+function setDaily(p){ setJSON(LS_DAILY,p); }
+function refreshDailyUI(){
+  const t = getTargets(), p = getDaily();
+  $("targetTests").value = t.tests;
+  $("targetMinutes").value = t.minutes;
+  const pctTests = t.tests ? (p.testsDone/t.tests) : 0;
+  const pctMin   = t.minutes? (p.minutesDone/t.minutes) : 0;
+  const pct = Math.min(1, Math.max(pctTests, pctMin));
+  $("dailyBar").style.width = `${Math.round(pct*100)}%`;
+  $("dailyLine").textContent = `Today (${p.date}) • Tests: ${p.testsDone}/${t.tests} • Minutes: ${p.minutesDone}/${t.minutes}`;
+}
+
+/* History + leaderboard */
+function getHistory(){ return getJSON(LS_HISTORY, []); }
+function setHistory(h){ setJSON(LS_HISTORY, h); }
+
+function renderHistory(){
+  const tb = $("historyTable").querySelector("tbody");
+  tb.innerHTML = "";
+  const filterName = ($("filterStudent").value||"").trim().toLowerCase();
+  const filterLang = $("filterLang").value;
+
+  const hist = getHistory();
+  const filtered = hist.filter(r=>{
+    const okN = !filterName || (r.student||"").toLowerCase().includes(filterName);
+    const okL = filterLang==="all" || r.lang===filterLang;
+    return okN && okL;
+  });
+
+  $("historySummary").textContent = filtered.length ? `Showing ${filtered.length} result(s) • Latest: ${filtered[0].date}` : "No results yet.";
+
+  filtered.slice(0,200).forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="muted">${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.student)}</td>
+      <td class="muted">${escapeHtml(r.lang)}</td>
+      <td class="muted">${formatMMSS(r.durationSec)}</td>
+      <td><b>${r.wpm}</b></td>
+      <td>${r.acc}%</td>
+      <td>${r.errors}</td>
+      <td class="muted">${escapeHtml(r.passage||"")}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function renderLeaderboard(){
+  const minAcc = Math.max(0, Math.min(100, parseInt($("minAcc").value,10)||0));
+  const topN = Math.max(3, Math.min(50, parseInt($("topN").value,10)||10));
+
+  const hist = getHistory().filter(r => (r.acc ?? 0) >= minAcc);
+  const best = new Map();
+  for(const r of hist){
+    const k = (r.student||"").trim(); if(!k) continue;
+    const prev = best.get(k);
+    if(!prev) best.set(k, r);
+    else{
+      const better = (r.wpm>prev.wpm) || (r.wpm===prev.wpm && (r.acc??0)>(prev.acc??0)) || (r.wpm===prev.wpm && (r.acc??0)===(prev.acc??0) && r.date>prev.date);
+      if(better) best.set(k,r);
+    }
+  }
+  const rows = Array.from(best.values()).sort((a,b)=>{
+    if(b.wpm!==a.wpm) return b.wpm-a.wpm;
+    if((b.acc??0)!==(a.acc??0)) return (b.acc??0)-(a.acc??0);
+    return String(b.date).localeCompare(String(a.date));
+  }).slice(0,topN);
+
+  const tb = $("boardTable").querySelector("tbody");
+  tb.innerHTML="";
+  if(rows.length===0){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td colspan="6" class="muted">No data (min accuracy filter ज्यादा है?)</td>`;
+    tb.appendChild(tr);
+    return;
+  }
+  rows.forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><b>${i+1}</b></td>
+      <td>${escapeHtml(r.student)}</td>
+      <td><b>${r.wpm}</b></td>
+      <td>${r.acc}%</td>
+      <td class="muted">${escapeHtml(r.lang)}</td>
+      <td class="muted">${escapeHtml(r.date)}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+/* Escape */
+function escapeHtml(s){
+  return String(s??"").replace(/[&<>"']/g, c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+/* Passages */
+function rebuildPassages(){
+  const list=[];
+  const samples = SAMPLE[state.lang] || SAMPLE.en;
+  samples.forEach((t,i)=>list.push({name:`Sample ${i+1}`, text:t}));
+
+  if(state.uploadedText){
+    const parts = norm(state.uploadedText).split(/\n\s*\n/g).map(x=>x.trim()).filter(Boolean);
+    if(parts.length===0){
+      list.unshift({name:`${state.uploadedName||"Uploaded"} (Full)`, text: state.uploadedText.trim()});
+    }else{
+      parts.forEach((p,i)=>list.unshift({name:`${state.uploadedName||"Uploaded"} #${i+1}`, text:p}));
+    }
+  }
+
+  state.passages=list;
+  const sel=$("passageSelect");
+  sel.innerHTML="";
+  list.forEach((p,i)=>{
+    const opt=document.createElement("option");
+    opt.value=String(i);
+    opt.textContent=p.name;
+    sel.appendChild(opt);
+  });
+  sel.value="0";
+  selectPassage(0);
+}
+function selectPassage(i){
+  const p=state.passages[i]; if(!p) return;
+  state.promptText=p.text;
+  state.currentPassageName=p.name;
+  $("passageLabel").textContent=p.name;
+  renderPrompt();
+}
+
+/* Prompt renderer (per-char highlight + caret) */
+function renderPrompt(){
+  const typed = norm($("typing").value);
+  const prompt = norm(state.promptText);
+  const len = prompt.length;
+  const tlen = typed.length;
+  const caretPos = Math.min(tlen, len);
+
+  const frag = document.createDocumentFragment();
+  for(let i=0;i<len;i++){
+    if(i===caretPos){
+      const c=document.createElement("span");
+      c.className="caret";
+      frag.appendChild(c);
+    }
+    const ch = prompt[i];
+    const s=document.createElement("span");
+    if(i < tlen){
+      s.className = (typed[i]===ch) ? "ch-ok" : "ch-bad";
+    }else{
+      s.className = "ch-rem";
+    }
+    s.textContent = ch;
+    frag.appendChild(s);
+  }
+  // caret at end if typed longer
+  if(tlen >= len){
+    const c=document.createElement("span"); c.className="caret"; frag.appendChild(c);
+  }
+
+  const r=$("promptRender");
+  r.innerHTML="";
+  r.appendChild(frag);
+
+  // font class based on lang
+  r.classList.toggle("hi", state.lang==="hi");
+
+  // also render in focus mode
+  const rf=$("promptRenderF");
+  rf.innerHTML = r.innerHTML;
+  rf.classList.toggle("hi", state.lang==="hi");
+
+  // auto scroll prompt to caret
+  scrollCaretIntoView($("promptBox"), $("promptRender"), caretPos);
+  scrollCaretIntoView($("promptBoxF"), $("promptRenderF"), caretPos);
+}
+function scrollCaretIntoView(box, renderEl, caretPos){
+  // find first caret element
+  const caret = renderEl.querySelector(".caret");
+  if(!caret || !box) return;
+  const boxRect = box.getBoundingClientRect();
+  const caretRect = caret.getBoundingClientRect();
+  const above = caretRect.top < boxRect.top + 20;
+  const below = caretRect.bottom > boxRect.bottom - 20;
+  if(above || below){
+    const delta = (caretRect.top - boxRect.top) - (boxRect.height/2);
+    box.scrollTop += delta;
+  }
+}
+
+/* Language + input style */
+function applyLangUI(){
+  const ta=$("typing");
+  const tf=$("typingF");
+  ta.classList.toggle("hi", state.lang==="hi");
+  tf.classList.toggle("hi", state.lang==="hi");
+
+  $("englishKbdWrap").style.display = (state.lang==="en") ? "block" : "none";
+  $("mathPadWrap").style.display = (state.lang==="math") ? "block" : "none";
+  $("hindiPadWrap").style.display = (state.lang==="hi" && state.options.hindiPad) ? "block" : "none";
+
+  $("langHint").textContent =
+    state.lang==="hi"
+      ? "Hindi: Unicode typing (IME) या optional on-screen keys. Enter = नई लाइन."
+      : state.lang==="math"
+        ? "Math: symbols pad use करें. ⏎ Enter button = नई लाइन."
+        : "English: keyboard key highlight on. Enter = new line.";
+
+  $("autoNextLabel").textContent = state.options.autoNext ? "ON" : "OFF";
+  $("hindiToggleLabel").textContent = state.options.hindiPad ? "ON" : "OFF";
+
+  renderPrompt();
+}
+
+/* Timer / session */
+function resetSession(){
+  stopTimer();
+  state.running=false;
+  state.startedAt=null;
+  const dur=parseInt($("duration").value,10)||180;
+  state.durationSec=dur;
+  setAllTimeLeft(dur);
+  setAllStats(0,100,0);
+  $("statusLabel").textContent="Ready";
+  $("statusLabel").classList.add("muted");
+  $("typing").value="";
+  $("typingF").value="";
+  renderPrompt();
+}
+function setAllTimeLeft(sec){
+  const t=formatMMSS(sec);
+  $("timeLeft").textContent=t;
+  $("timeLeft2").textContent=t;
+  $("timeLeftF").textContent=t;
+}
+function setAllStats(wpm, acc, errors){
+  $("wpm").textContent=String(wpm);
+  $("acc").textContent=`${Math.round(acc)}%`;
+  $("errors").textContent=String(errors);
+
+  $("wpm2").textContent=String(wpm);
+  $("acc2").textContent=`${Math.round(acc)}%`;
+  $("errors2").textContent=String(errors);
+
+  $("wpmF").textContent=String(wpm);
+  $("accF").textContent=`${Math.round(acc)}%`;
+  $("errorsF").textContent=String(errors);
+}
+
+function startIfNeeded(){
+  if(state.running) return;
+  const name=($("studentName").value||"").trim();
+  if(!name){ alert("Student Name भरें!"); $("studentName").focus(); return; }
+  if(!state.promptText){ alert("Passage select/upload करें."); return; }
+  state.running=true;
+  state.startedAt=Date.now();
+  $("statusLabel").textContent="Running";
+  $("statusLabel").classList.remove("muted");
+  startTimer();
+}
+function startTimer(){
+  stopTimer();
+  state.tick=setInterval(()=>{
+    if(!state.running) return;
+    const elapsed=(Date.now()-state.startedAt)/1000;
+    const left=Math.max(0, state.durationSec - elapsed);
+    setAllTimeLeft(left);
+
+    const typed = norm($("typing").value);
+    const m=computeMetrics(state.promptText, typed, Math.max(1, elapsed));
+    setAllStats(m.wpm, m.acc, m.errors);
+
+    if(left<=0){
+      finishAndSave(true);
+    }
+  },200);
+}
+function stopTimer(){
+  if(state.tick){ clearInterval(state.tick); state.tick=null; }
+}
+
+/* Auto next passage */
+function nextPassage(){
+  const sel=$("passageSelect");
+  const cur=parseInt(sel.value,10)||0;
+  const next=(cur+1)%state.passages.length;
+  sel.value=String(next);
+  selectPassage(next);
+  resetSession();
+  $("typing").focus();
+}
+
+/* Daily progress update */
+function updateDailyOnSave(durationSec){
+  const p=getDaily();
+  p.testsDone+=1;
+  p.minutesDone+=Math.max(0, Math.round(durationSec/60));
+  setDaily(p);
+  refreshDailyUI();
+}
+
+/* Save result */
+function finishAndSave(auto=false){
+  if(!state.running && !auto){
+    alert("पहले typing start करें (या Start button)."); return;
+  }
+  const name=($("studentName").value||"").trim();
+  if(!name){ alert("Student Name भरें!"); return; }
+
+  const elapsed = state.running ? Math.min(state.durationSec, (Date.now()-state.startedAt)/1000) : state.durationSec;
+  const typed = norm($("typing").value);
+  const m=computeMetrics(state.promptText, typed, Math.max(1, elapsed));
+
+  const result = {
+    date: nowISO(),
+    student: name,
+    lang: state.lang,
+    durationSec: Math.round(elapsed),
+    passage: state.currentPassageName,
+    wpm: m.wpm,
+    acc: Math.round(m.acc),
+    errors: m.errors
+  };
+
+  const hist=getHistory();
+  hist.unshift(result);
+  setHistory(hist);
+  state.lastSaved=result;
+
+  updateDailyOnSave(result.durationSec);
+
+  state.running=false;
+  stopTimer();
+  $("statusLabel").textContent="Saved";
+
+  renderHistory();
+  renderLeaderboard();
+
+  if(!auto){
+    alert(`Saved ✅\nWPM: ${result.wpm}\nAccuracy: ${result.acc}%\nErrors: ${result.errors}\n\nEnter = Keyboard Enter या ⏎ button`);
+  }
+
+  if(state.options.autoNext){
+    nextPassage();
+  }else{
+    resetSession();
+  }
+}
+
+/* Certificate PDF */
+function buildCertificatePDF(){
+  const { jsPDF } = window.jspdf || {};
+  if(!jsPDF){ alert("jsPDF load नहीं हुआ (internet/CDN)."); return; }
+  if(!state.lastSaved){ alert("पहले Finish & Save करो, फिर certificate."); return; }
+
+  const last=state.lastSaved;
+  const doc=new jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+  const W=doc.internal.pageSize.getWidth();
+  const H=doc.internal.pageSize.getHeight();
+
+  doc.setLineWidth(1.2); doc.rect(10,10,W-20,H-20,"S");
+  doc.setLineWidth(0.4); doc.rect(14,14,W-28,H-28,"S");
+
+  doc.setFont("helvetica","bold"); doc.setFontSize(26);
+  doc.text("CERTIFICATE OF TYPING PERFORMANCE", W/2, 32, {align:"center"});
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(12);
+  doc.text("This is to certify that", W/2, 46, {align:"center"});
+
+  doc.setFont("helvetica","bold"); doc.setFontSize(24);
+  doc.text(last.student, W/2, 60, {align:"center"});
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(12);
+  doc.text("has successfully completed a typing test with the following results:", W/2, 72, {align:"center"});
+
+  const bx=58, by=82, bw=W-116, bh=52;
+  doc.setLineWidth(0.6); doc.roundedRect(bx,by,bw,bh,4,4,"S");
+
+  doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("WPM", bx+18, by+18, {align:"center"});
+  doc.text("ACCURACY", bx+bw/2, by+18, {align:"center"});
+  doc.text("ERRORS", bx+bw-18, by+18, {align:"center"});
+
+  doc.setFontSize(26);
+  doc.text(String(last.wpm), bx+18, by+38, {align:"center"});
+  doc.text(String(last.acc)+"%", bx+bw/2, by+38, {align:"center"});
+  doc.text(String(last.errors), bx+bw-18, by+38, {align:"center"});
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  doc.text(`Language: ${last.lang}   |   Duration: ${formatMMSS(last.durationSec)}   |   Passage: ${last.passage}`, W/2, by+bh+10, {align:"center"});
+
+  doc.setFontSize(10);
+  doc.text(`Date: ${last.date}`, 22, H-22);
+  doc.text("Authorized Sign", W-22, H-22, {align:"right"});
+  doc.line(W-62, H-25, W-22, H-25);
+
+  doc.save(`Certificate_${(last.student||"Student").replace(/\s+/g,"_")}_${Date.now()}.pdf`);
+}
+
+/* Pads insert */
+function insertAtCursor(text, targetId="typing"){
+  const ta=$(targetId);
+  ta.focus();
+  const s=ta.selectionStart ?? ta.value.length;
+  const e=ta.selectionEnd ?? ta.value.length;
+  const v=ta.value;
+  ta.value = v.slice(0,s) + text + v.slice(e);
+  const pos = s + text.length;
+  ta.setSelectionRange(pos,pos);
+  if(!state.running) startIfNeeded();
+  syncFocusInputs(targetId);
+  renderPrompt();
+}
+function backspaceAtCursor(targetId="typing"){
+  const ta=$(targetId);
+  ta.focus();
+  let s=ta.selectionStart ?? ta.value.length;
+  let e=ta.selectionEnd ?? ta.value.length;
+  const v=ta.value;
+  if(s!==e){
+    ta.value = v.slice(0,s) + v.slice(e);
+    ta.setSelectionRange(s,s);
+  }else if(s>0){
+    ta.value = v.slice(0,s-1) + v.slice(s);
+    ta.setSelectionRange(s-1,s-1);
+  }
+  if(!state.running) startIfNeeded();
+  syncFocusInputs(targetId);
+  renderPrompt();
+}
+function clearTyping(){
+  $("typing").value="";
+  $("typingF").value="";
+  $("typing").focus();
+  renderPrompt();
+}
+
+/* Focus mode sync */
+function syncFocusInputs(sourceId){
+  if(sourceId==="typing"){
+    $("typingF").value = $("typing").value;
+  }else if(sourceId==="typingF"){
+    $("typing").value = $("typingF").value;
+  }
+}
+
+/* English keyboard build + highlight */
+function buildEnglishKbd(){
+  const wrap=$("englishKbd");
+  wrap.innerHTML="";
+  EN_KBD.forEach(row=>{
+    const rowEl=document.createElement("div");
+    rowEl.className="kbdRow";
+    row.forEach(k=>{
+      const key=document.createElement("div");
+      key.className="key";
+      key.dataset.key=k.toLowerCase();
+      key.textContent=k;
+      if(k==="Backspace"||k==="Enter"||k==="Tab"||k==="Caps"||k==="Shift") key.classList.add("wide");
+      if(k==="Space") key.classList.add("xwide");
+      rowEl.appendChild(key);
+    });
+    wrap.appendChild(rowEl);
+  });
+}
+function highlightKey(e, on){
+  if(state.lang!=="en") return;
+  let k = e.key;
+  let lookup = k;
+  if(k===" ") lookup="space";
+  if(k==="Backspace") lookup="backspace";
+  if(k==="Enter") lookup="enter";
+  if(k==="Tab") lookup="tab";
+  if(k==="Shift") lookup="shift";
+  lookup = String(lookup).toLowerCase();
+  document.querySelectorAll(".key").forEach(el=>{
+    if(el.dataset.key===lookup){
+      el.classList.toggle("active", on);
+    }
+  });
+}
+
+/* Build math + hindi pads */
+function buildMathPad(){
+  const pad=$("mathPad");
+  pad.innerHTML="";
+  MATH_KEYS.forEach(k=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=k;
+    if(k==="␠") b.classList.add("xwide");
+    if(k==="⌫") b.classList.add("wide");
+    if(k==="⏎") b.classList.add("wide");
+    b.addEventListener("click", ()=>{
+      if(k==="␠") insertAtCursor(" ");
+      else if(k==="⌫") backspaceAtCursor();
+      else if(k==="⏎") insertAtCursor("\n");
+      else insertAtCursor(k);
+    });
+    pad.appendChild(b);
+  });
+}
+function buildHindiPad(){
+  const pad=$("hindiPad");
+  pad.innerHTML="";
+  HINDI_KEYS.forEach(k=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=k;
+    if(k==="␠") b.classList.add("xwide");
+    if(k==="⌫"||k==="⏎"||k==="Clear") b.classList.add("wide");
+    b.addEventListener("click", ()=>{
+      if(k==="␠") insertAtCursor(" ");
+      else if(k==="⌫") backspaceAtCursor();
+      else if(k==="⏎") insertAtCursor("\n");    // ENTER SYMBOL: ⏎
+      else if(k==="Clear") clearTyping();
+      else insertAtCursor(k);
+    });
+    pad.appendChild(b);
+  });
+}
+
+/* Pages */
+function showPage(name){
+  state.page=name;
+  $("pageTitle").textContent = name[0].toUpperCase()+name.slice(1);
+  document.querySelectorAll(".page").forEach(p=>p.style.display="none");
+  $("page_"+name).style.display="block";
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active", b.dataset.page===name));
+  if(name==="history") renderHistory();
+  if(name==="leaderboard") renderLeaderboard();
+  if(name==="settings") refreshDailyUI();
+}
+
+/* Options save/load */
+function loadOptions(){
+  const opt = getJSON(LS_OPTIONS, {autoNext:true, hindiPad:false});
+  state.options = opt;
+  $("autoNextLabel").textContent = opt.autoNext ? "ON" : "OFF";
+  $("hindiToggleLabel").textContent = opt.hindiPad ? "ON" : "OFF";
+}
+function saveOptions(){
+  setJSON(LS_OPTIONS, state.options);
+}
+
+/* Lesson buttons */
+function applyLesson(level){
+  const list = (LESSONS[level]?.[state.lang]) || [];
+  if(list.length===0){ alert("इस language के लिए lesson नहीं मिला."); return; }
+  // replace samples for quick practice (lesson becomes first items)
+  const lessonPassages = list.map((t,i)=>({name:`Lesson ${level} #${i+1}`, text:t}));
+  const samples = (SAMPLE[state.lang]||SAMPLE.en).map((t,i)=>({name:`Sample ${i+1}`, text:t}));
+  state.passages = [...lessonPassages, ...samples];
+  const sel=$("passageSelect");
+  sel.innerHTML="";
+  state.passages.forEach((p,i)=>{
+    const opt=document.createElement("option"); opt.value=String(i); opt.textContent=p.name; sel.appendChild(opt);
+  });
+  sel.value="0";
+  selectPassage(0);
+  resetSession();
+  $("lessonInfo").textContent = `Loaded ${level} lesson passages ✅ अब Practice page में typing शुरू करें.`;
+  showPage("practice");
+}
+
+/* Events */
+document.querySelectorAll(".nav button").forEach(b=>{
+  b.addEventListener("click", ()=> showPage(b.dataset.page));
+});
+
+$("language").addEventListener("change", e=>{
+  state.lang = e.target.value;
+  rebuildPassages();
+  applyLangUI();
+  resetSession();
+});
+
+$("duration").addEventListener("change", ()=>{
+  if(!state.running) resetSession();
+});
+
+$("passageSelect").addEventListener("change", e=>{
+  selectPassage(parseInt(e.target.value,10));
+  resetSession();
+});
+
+$("btnStart").addEventListener("click", ()=>{ startIfNeeded(); $("typing").focus(); });
+$("btnNext").addEventListener("click", nextPassage);
+
+$("btnFinish").addEventListener("click", ()=> finishAndSave(false));
+$("btnCertificate").addEventListener("click", buildCertificatePDF);
+
+$("btnReset").addEventListener("click", resetSession);
+
+$("btnUpload").addEventListener("click", ()=> $("fileInput").click());
+$("fileInput").addEventListener("change", async (e)=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  state.uploadedText = await f.text();
+  state.uploadedName = f.name.replace(/\.txt$/i,"");
+  rebuildPassages();
+  resetSession();
+});
+
+$("typing").addEventListener("keydown", (e)=>{
+  if(!state.running){
+    const ign=["Shift","Control","Alt","Meta","CapsLock","Escape"];
+    if(!ign.includes(e.key)) startIfNeeded();
+  }
+  highlightKey(e, true);
+});
+$("typing").addEventListener("keyup", (e)=> highlightKey(e, false));
+
+$("typing").addEventListener("input", ()=>{
+  syncFocusInputs("typing");
+  if(state.running){
+    const elapsed=(Date.now()-state.startedAt)/1000;
+    const m=computeMetrics(state.promptText, $("typing").value, Math.max(1, elapsed));
+    setAllStats(m.wpm,m.acc,m.errors);
+  }
+  renderPrompt();
+});
+
+$("typingF").addEventListener("keydown", (e)=>{
+  if(!state.running){
+    const ign=["Shift","Control","Alt","Meta","CapsLock","Escape"];
+    if(!ign.includes(e.key)) startIfNeeded();
+  }
+});
+$("typingF").addEventListener("input", ()=>{
+  syncFocusInputs("typingF");
+  renderPrompt();
+});
+
+document.querySelectorAll(".lessonBtn").forEach(b=>{
+  b.addEventListener("click", ()=> applyLesson(b.dataset.lesson));
+});
+
+/* History events */
+$("btnRefreshHistory").addEventListener("click", renderHistory);
+$("filterStudent").addEventListener("input", renderHistory);
+$("filterLang").addEventListener("change", renderHistory);
+$("btnClearHistory").addEventListener("click", ()=>{
+  if(confirm("Clear ALL history?")){
+    localStorage.removeItem(LS_HISTORY);
+    renderHistory();
+    renderLeaderboard();
+  }
+});
+
+/* Leaderboard events */
+$("btnRefreshBoard").addEventListener("click", renderLeaderboard);
+
+/* Settings events */
+$("btnSaveTargets").addEventListener("click", ()=>{
+  const tests=Math.max(1, parseInt($("targetTests").value,10)||10);
+  const minutes=Math.max(1, parseInt($("targetMinutes").value,10)||30);
+  setTargets({tests, minutes});
+  refreshDailyUI();
+  alert("Targets saved ✅");
+});
+$("btnResetDaily").addEventListener("click", ()=>{
+  if(confirm("Reset today's progress?")){
+    setDaily({date:todayKey(), testsDone:0, minutesDone:0});
+    refreshDailyUI();
+  }
+});
+
+/* Test page toggles */
+$("btnAutoNextToggle").addEventListener("click", ()=>{
+  state.options.autoNext = !state.options.autoNext;
+  $("autoNextLabel").textContent = state.options.autoNext ? "ON" : "OFF";
+  saveOptions();
+});
+$("btnHindiToggle").addEventListener("click", ()=>{
+  state.options.hindiPad = !state.options.hindiPad;
+  $("hindiToggleLabel").textContent = state.options.hindiPad ? "ON" : "OFF";
+  saveOptions();
+  applyLangUI();
+});
+
+/* Focus mode */
+$("btnFocus").addEventListener("click", ()=>{
+  $("focusMask").style.display="flex";
+  $("typingF").focus();
+});
+$("btnExitFocus").addEventListener("click", ()=>{
+  $("focusMask").style.display="none";
+  $("typing").focus();
+});
+$("focusMask").addEventListener("click", (e)=>{
+  if(e.target.id==="focusMask") $("focusMask").style.display="none";
+});
+
+/* Init */
+function init(){
+  loadOptions();
+  buildEnglishKbd();
+  buildMathPad();
+  buildHindiPad();
+
+  state.lang = $("language").value || "en";
+  rebuildPassages();
+  applyLangUI();
+  resetSession();
+  renderHistory();
+  renderLeaderboard();
+  refreshDailyUI();
+  showPage("practice");
+}
+init();
+</script>
+</body>
+</html>
